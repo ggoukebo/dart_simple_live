@@ -16,7 +16,8 @@ jobs:
       # 签出代码
       - uses: actions/checkout@v4
         with:
-          ref: dev
+          fetch-depth: 0  # 获取所有历史记录
+          token: ${{ secrets.GITHUB_TOKEN }}
       # 设置Flutter环境
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
