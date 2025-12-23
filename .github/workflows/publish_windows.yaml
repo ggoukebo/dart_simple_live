@@ -1,0 +1,64 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+      - name: Verify Flutter
+        run: flutter doctor -v
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      - name: Install dependencies
+        run: |
+          flutter pub get
+        working-directory: simple_live_app
+      - name: Build windows release
+        run: flutter build windows --release
+        working-directory: simple_live_app
+      - name: Package release as ZIP
+        shell: powershell
+        run: |
+          $out = 'simple_live_app\\build\\windows\\runner\\Release'
+          $zip = 'simple_live_app\\build\\windows\\release_windows.zip'
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "$out\\*" -DestinationPath $zip -Force
+      - name: Upload release folder artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: simple_live_app/build/windows/runner/Release/
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: simple_live_app/build/windows/release_windows.zip
+      - name: Prepare installer staging
+        shell: powershell
+        run: |
+          $src='simple_live_app\\build\\windows\\runner\\Release\\*'
+          $dst='simple_live_app\\build\\windows\\installer\\release'
+          if (Test-Path 'simple_live_app\\build\\windows\\installer') { Remove-Item 'simple_live_app\\build\\windows\\installer' -Recurse -Force }
+          New-Item -ItemType Directory -Path $dst -Force | Out-Null
+          Copy-Item -Path $src -Destination $dst -Recurse -Force
+      - name: Install NSIS (for makensis)
+        run: choco install nsis -y
+      - name: Build NSIS installer
+        shell: cmd
+        run: |
+          cd simple_live_app\installer
+          makensis.exe simple_live_installer.nsi
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: simple_live_app/installer/simple_live_installer.exe
